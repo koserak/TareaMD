@@ -29,6 +29,10 @@ typedef struct {
     int    nodo_id;    /* id del nodo correspondiente en el grafo */
     int    visitado;
 } PuntoTuristico;
+typedef struct Arista {
+    int           destino;
+    struct Arista *sig;
+} Arista;
 
 typedef struct {
     Nodo   nodos[MAX_NODOS];
@@ -44,10 +48,7 @@ typedef struct {
     Grafo     grafo;
 } Ciudad;
 
-typedef struct Arista {
-    int           destino;
-    struct Arista *sig;
-} Arista;
+
 
 
 
