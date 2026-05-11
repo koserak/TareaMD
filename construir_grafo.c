@@ -43,7 +43,7 @@ static int agregar_vertice(Grafo *g, double x, double y) {
     g->Vertices[id].x = x;
     g->Vertices[id].y = y;
     g->Vertices[id].es_turistico = false;
-    g->Vertices[id].idx_turistico = -1;
+    g->Vertices[id].num_turisticos = 0;
     g->adyacencia[id] = NULL;
     return id;
 }
@@ -187,8 +187,22 @@ void construir_grafo(Ciudad *ciudad) {
             }
 
             int id = agregar_vertice(g, px, py);
-            g->Vertices[id].es_turistico = true;
-            g->Vertices[id].idx_turistico = t;
+            Vertice *v = &g->Vertices[id];
+            v->es_turistico = true;
+
+            int existe = 0;
+
+            for (int k = 0; k < v->num_turisticos; k++) {
+                if (v->idx_turisticos[k] == t) {
+                    existe = 1;
+                    break;
+                }
+            }
+            if (!existe && v->num_turisticos < MAX_TURISTICOS) {
+                v->idx_turisticos[v->num_turisticos] = t;
+                v->num_turisticos++;
+            }
+
             pt->vertice_id = id;
 
             double pos = pt->posicion;

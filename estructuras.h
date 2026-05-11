@@ -21,7 +21,8 @@ typedef struct {
 typedef struct {
     double x, y;
     bool   es_turistico;    /* 1 si es punto de interes, 0 si es interseccion */
-    int    idx_turistico;   /* indice en arreglo de turisticos, -1 si no aplica */
+    int idx_turisticos[MAX_TURISTICOS];
+    int num_turisticos;   /* indice en arreglo de turisticos, -1 si no aplica */
 } Vertice;
 
 typedef struct {

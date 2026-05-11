@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "estructuras.h"
 
 typedef enum {
@@ -29,13 +30,16 @@ static Direccion calcular_giro(Vertice A, Vertice B, Vertice C) {
         return DIR_RECTO;
     return (cross > 0) ? DIR_IZQUIERDA : DIR_DERECHA;
 }
-
+static double distancia_vertices(Vertice a, Vertice b) {
+    double dx = b.x - a.x;
+    double dy = b.y - a.y;
+    return sqrt(dx * dx + dy * dy);
+}
 /* Prototipos de funciones en otros modulos */
 int    leer_archivo(char *nombre, Ciudad *ciudad);
 void   construir_grafo(Ciudad *ciudad);
 double dijkstra(Ciudad *ciudad, int inicio_id, int fin_id,
                 int *camino, int *largo_camino);
-
 /* ---------------------------------------------------------------
  * imprimir_camino: muestra el recorrido nodo a nodo con coordenadas.
  * Ademas, si el camino pasa por un punto turistico aun no visitado,
@@ -46,6 +50,13 @@ static void imprimir_camino(Ciudad *ciudad, int *camino, int largo) {
     for (int k = 0; k < largo; k++) {
         int id = camino[k];
         Vertice *v = &g->Vertices[id];
+
+        if (k > 0) {
+            Vertice anterior = g->Vertices[camino[k - 1]];
+            double d = distancia_vertices(anterior, *v);
+
+            printf("     -> Recorra %.2f unidades\n", d);
+        }
         if (k > 0 && k < largo - 1) {
             Vertice A = g->Vertices[camino[k-1]];
             Vertice B = g->Vertices[camino[k]];
@@ -61,17 +72,24 @@ static void imprimir_camino(Ciudad *ciudad, int *camino, int largo) {
         }
 
         if (v->es_turistico) {
-            int t = v->idx_turistico;
-            printf("  Nodo %3d  (%.1f, %.1f)  <-- %s\n",
-                   id, v->x, v->y, ciudad->turisticos[t].nombre);
+            printf("  Vertice %3d  (%.1f, %.1f)\n",
+                   id, v->x, v->y);
+                   for (int j = 0; j < v->num_turisticos; j++) {
+                        int t = v->idx_turisticos[j];
+                    if (!ciudad->turisticos[t].visitado) {
+                        ciudad->turisticos[t].visitado = 1;
+
+                        printf("             <-- %s\n",
+                        ciudad->turisticos[t].nombre);
+
+                        printf("             [Punto turistico '%s' visitado!]\n",
+                        ciudad->turisticos[t].nombre);
+                        }
+                    }
             /* Marcar como visitado si no lo estaba */
-            if (!ciudad->turisticos[t].visitado) {
-                ciudad->turisticos[t].visitado = 1;
-                printf("             [Punto turistico '%s' visitado!]\n",
-                       ciudad->turisticos[t].nombre);
-            }
+           
         } else {
-            printf("  Nodo %3d  (%.1f, %.1f)\n", id, v->x, v->y);
+            printf("  Vertice %3d  (%.1f, %.1f)\n", id, v->x, v->y);
         }
     }
 }
@@ -92,7 +110,6 @@ static void buscar_rutas(Ciudad *ciudad) {
     double dist_total = 0.0;
 
     /* Punto de partida: primer turistico */
-    ciudad->turisticos[0].visitado = 1;
     printf("\nInicio en: %s (%.1f, %.1f)\n",
            ciudad->turisticos[0].nombre,
            ciudad->grafo.Vertices[ciudad->turisticos[0].vertice_id].x,
