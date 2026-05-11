@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "estructuras.h"
+
 int leer_archivo(char *nombre, Ciudad *ciudad) {
     FILE *f = fopen(nombre, "r");
     if (!f) {
@@ -25,8 +26,7 @@ int leer_archivo(char *nombre, Ciudad *ciudad) {
         ciudad->turisticos[i].visitado = 0;
         ciudad->turisticos[i].vertice_id = -1;
     }
-    //printf("se escaneo '%s'",nombre);
-    
+
     fclose(f);
     return 1;
 }

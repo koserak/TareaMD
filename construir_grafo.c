@@ -26,10 +26,28 @@ static int punto_en_segmento(double px, double py,
 }
 
 /* ---------------------------------------------------------------
+ * calcular_pos: proyeccion del punto (px,py) sobre la calle ci,
+ * devuelve distancia desde el inicio del segmento.
+ * Funciona para calles horizontales, verticales y diagonales.
+ * --------------------------------------------------------------- */
+static double calcular_pos(Calle *ci, double px, double py) {
+    double dx = ci->x1 - ci->x0;
+    double dy = ci->y1 - ci->y0;
+    double len = sqrt(dx*dx + dy*dy);
+    if (len < EPSILON) return 0.0;
+    return ((px - ci->x0)*dx + (py - ci->y0)*dy) / len;
+}
+
+/* ---------------------------------------------------------------
  * agregar_vertice: busca si ya existe un vertice en (x,y); si no,
- * lo crea. Devuelve el id del vertice.
+ * lo crea. Normaliza coordenadas para evitar duplicados por error
+ * de punto flotante. Devuelve el id del vertice.
  * --------------------------------------------------------------- */
 static int agregar_vertice(Grafo *g, double x, double y) {
+    /* Normalizar para evitar duplicados por error de punto flotante */
+    x = round(x * 1e6) / 1e6;
+    y = round(y * 1e6) / 1e6;
+
     for (int i = 0; i < g->num_Vertices; i++) {
         if (fabs(g->Vertices[i].x - x) < EPSILON &&
             fabs(g->Vertices[i].y - y) < EPSILON)
@@ -53,7 +71,6 @@ static int agregar_vertice(Grafo *g, double x, double y) {
  * --------------------------------------------------------------- */
 static void agregar_arista(Grafo *g, int u, int v) {
     if (u == v) return;
-    /* Verificar que no existe ya */
     Arista *a = g->adyacencia[u];
     while (a) {
         if (a->destino == v) return;
@@ -95,7 +112,6 @@ void construir_grafo(Ciudad *ciudad) {
     for (int i = 0; i < MAX_VERTICES; i++)
         g->adyacencia[i] = NULL;
 
-    /* Para cada calle coleccionamos los vertices que caen sobre ella */
     for (int i = 0; i < ciudad->num_calles; i++) {
         Calle *ci = &ciudad->calles[i];
         PosId sobre[MAX_VERTICES];
@@ -104,12 +120,10 @@ void construir_grafo(Ciudad *ciudad) {
         /* Extremos de la calle como vertices */
         {
             int id0 = agregar_vertice(g, ci->x0, ci->y0);
-            double pos0 = (ci->eje == 'X') ? ci->x0 : ci->y0;
-            sobre[n_sobre++] = (PosId){pos0, id0};
+            sobre[n_sobre++] = (PosId){ calcular_pos(ci, ci->x0, ci->y0), id0 };
 
             int id1 = agregar_vertice(g, ci->x1, ci->y1);
-            double pos1 = (ci->eje == 'X') ? ci->x1 : ci->y1;
-            sobre[n_sobre++] = (PosId){pos1, id1};
+            sobre[n_sobre++] = (PosId){ calcular_pos(ci, ci->x1, ci->y1), id1 };
         }
 
         /* Intersecciones con otras calles */
@@ -120,29 +134,25 @@ void construir_grafo(Ciudad *ciudad) {
             double px = -1, py = -1;
             int hay_interseccion = 0;
 
-            /*
-             * Caso 1: ci es horizontal (eje X) y cj es vertical (eje Y).
-             * La interseccion es (cj->x0, ci->y0).
-             */
-            if (ci->eje == 'X' && cj->eje == 'Y') {
+            /* Detectar tipo de calle por geometria, no por campo eje,
+             * para soportar diagonales marcadas como 'X' o 'Y' en el archivo. */
+            int ci_horiz = fabs(ci->y1 - ci->y0) < EPSILON;
+            int ci_vert  = fabs(ci->x1 - ci->x0) < EPSILON;
+            int cj_horiz = fabs(cj->y1 - cj->y0) < EPSILON;
+            int cj_vert  = fabs(cj->x1 - cj->x0) < EPSILON;
+
+            if (ci_horiz && cj_vert) {
                 px = cj->x0;
                 py = ci->y0;
                 hay_interseccion = 1;
             }
-            /*
-             * Caso 2: ci es vertical (eje Y) y cj es horizontal (eje X).
-             */
-            else if (ci->eje == 'Y' && cj->eje == 'X') {
+            else if (ci_vert && cj_horiz) {
                 px = ci->x0;
                 py = cj->y0;
                 hay_interseccion = 1;
             }
-            /*
-             * Caso 3: ambas tienen eje X (pueden ser la diagonal vs horizontal).
-             * Usamos interseccion de rectas parametricas.
-             */
             else {
-                /* Resolvemos sistema: ci(t) = cj(s) */
+                /* Cualquier otro caso (diagonal vs cualquiera): parametrico */
                 double dx1 = ci->x1 - ci->x0, dy1 = ci->y1 - ci->y0;
                 double dx2 = cj->x1 - cj->x0, dy2 = cj->y1 - cj->y0;
                 double denom = dx1*dy2 - dy1*dx2;
@@ -157,9 +167,13 @@ void construir_grafo(Ciudad *ciudad) {
             if (hay_interseccion &&
                 punto_en_segmento(px, py, ci->x0, ci->y0, ci->x1, ci->y1) &&
                 punto_en_segmento(px, py, cj->x0, cj->y0, cj->x1, cj->y1)) {
+
+                /* Normalizar antes de insertar */
+                px = round(px * 1e6) / 1e6;
+                py = round(py * 1e6) / 1e6;
+
                 int id = agregar_vertice(g, px, py);
-                double pos = (ci->eje == 'X') ? px : py;
-                sobre[n_sobre++] = (PosId){pos, id};
+                sobre[n_sobre++] = (PosId){ calcular_pos(ci, px, py), id };
             }
         }
 
@@ -169,29 +183,39 @@ void construir_grafo(Ciudad *ciudad) {
             if (strcmp(pt->calle, ci->nombre) != 0) continue;
 
             double px, py;
-            if (ci->eje == 'X') {
-                /* posicion es coordenada X; Y es constante */
+
+            /* Calcular coordenadas del punto turistico segun geometria real de la calle.
+             * Se detecta por coordenadas, no por el campo eje, para soportar diagonales
+             * que en el archivo vengan marcadas como 'X' o 'Y'. */
+            if (fabs(ci->y1 - ci->y0) < EPSILON) {
+                /* Horizontal real: Y es constante, posicion es coordenada X */
                 px = pt->posicion;
-                py = ci->y0;  /* calle horizontal: y0==y1 */
+                py = ci->y0;
+            } else if (fabs(ci->x1 - ci->x0) < EPSILON) {
+                /* Vertical real: X es constante, posicion es coordenada Y */
+                px = ci->x0;
+                py = pt->posicion;
             } else {
-                /* posicion es coordenada Y; X es constante */
-                px = ci->x0;  /* calle vertical: x0==x1 */
+                /* Diagonal: x e y aumentan juntas, posicion vale para ambas */
+                px = pt->posicion;
                 py = pt->posicion;
             }
 
-            /* Verificar que cae dentro del segmento */
             if (!punto_en_segmento(px, py, ci->x0, ci->y0, ci->x1, ci->y1)) {
                 fprintf(stderr, "Advertencia: punto turistico '%s' fuera de calle '%s'\n",
                         pt->nombre, ci->nombre);
                 continue;
             }
 
+            /* Normalizar antes de insertar */
+            px = round(px * 1e6) / 1e6;
+            py = round(py * 1e6) / 1e6;
+
             int id = agregar_vertice(g, px, py);
             Vertice *v = &g->Vertices[id];
             v->es_turistico = true;
 
             int existe = 0;
-
             for (int k = 0; k < v->num_turisticos; k++) {
                 if (v->idx_turisticos[k] == t) {
                     existe = 1;
@@ -204,9 +228,7 @@ void construir_grafo(Ciudad *ciudad) {
             }
 
             pt->vertice_id = id;
-
-            double pos = pt->posicion;
-            sobre[n_sobre++] = (PosId){pos, id};
+            sobre[n_sobre++] = (PosId){ calcular_pos(ci, px, py), id };
         }
 
         /* Ordenar por posicion y conectar consecutivos */

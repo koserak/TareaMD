@@ -17,7 +17,8 @@ typedef enum {
     DIR_RECTO,
     DIR_IZQUIERDA,
     DIR_DERECHA,
-    DIR_MEDIA_VUELTA
+    DIR_MEDIA_VUELTA,
+    DIR_DIAGONAL
 } Direccion;
 
 // Struct para Calle
@@ -42,8 +43,10 @@ typedef struct {
 typedef struct {
     char   nombre[MAX_NOMBRE];
     char   calle[MAX_NOMBRE];
-    double posicion;      /* coordenada segun el eje de la calle */
-    int    vertice_id;    /* id del Vertice correspondiente en el grafo */
+    double posicion;      // coordenada segun el eje de la calle para calles rectas
+    double pos_x;           // coordenada en x para diagonales
+    double pos_y;           // coordenada en y para diagonales
+    int    vertice_id;    // id del Vertice correspondiente en el grafo
     int    visitado;
 } PuntoTuristico;
 
