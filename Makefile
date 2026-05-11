@@ -5,27 +5,30 @@
 #  Limpiar:  make clean
 # ============================================================
 
-CC      = gcc
-CFLAGS  = -Wall -std=c11
-LIBS    = -lm
-TARGET  = mapa_turistico
-SRCS    = main.c leer_archivo.c construir_grafo.c dijkstra.c
-OBJS    = $(SRCS:.c=.o)
+CC     = gcc
+CFLAGS = -Wall -std=c11
+LIBS   = -lm
+SRCS   = main.c leer_archivo.c construir_grafo.c dijkstra.c
 
-# --- Regla principal ---
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LIBS)
+# --- Detectar sistema operativo ---
+ifeq ($(OS), Windows_NT)
+    TARGET = mapa_turistico.exe
+    RM     = del /Q
+else
+    TARGET = mapa_turistico.out
+    RM     = rm -f
+endif
 
-# --- Compilar cada .c a .o ---
-%.o: %.c estructuras.h
-	$(CC) $(CFLAGS) -c $< -o $@
+# --- Regla principal (sin .o) ---
+$(TARGET): $(SRCS) estructuras.h
+	$(CC) $(CFLAGS) -o $(TARGET) $(SRCS) $(LIBS)
 
 # --- Ejecutar ---
 run: $(TARGET)
 	./$(TARGET)
 
-# --- Limpiar archivos generados ---
+# --- Limpiar ---
 clean:
-	rm -f $(OBJS) $(TARGET)
+	$(RM) $(TARGET)
 
 .PHONY: run clean

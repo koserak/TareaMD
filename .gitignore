@@ -1,0 +1,6 @@
+# Ejecutables Linux
+*.out
+*.exe
+
+# Archivos de texto
+*.txt
