@@ -10,6 +10,26 @@
 #include <ctype.h>
 #include "estructuras.h"
 
+typedef enum {
+    DIR_RECTO,
+    DIR_IZQUIERDA,
+    DIR_DERECHA,
+    DIR_MEDIA_VUELTA
+} Direccion;
+
+static Direccion calcular_giro(Vertice A, Vertice B, Vertice C) {
+    double ax = B.x - A.x, ay = B.y - A.y;
+    double bx = C.x - B.x, by = C.y - B.y;
+    double cross = ax * by - ay * bx;
+    double dot   = ax * bx + ay * by;
+
+    if (fabs(cross) < EPSILON && dot < 0)
+        return DIR_MEDIA_VUELTA;
+    if (fabs(cross) < EPSILON)
+        return DIR_RECTO;
+    return (cross > 0) ? DIR_IZQUIERDA : DIR_DERECHA;
+}
+
 /* Prototipos de funciones en otros modulos */
 int    leer_archivo(char *nombre, Ciudad *ciudad);
 void   construir_grafo(Ciudad *ciudad);
@@ -26,6 +46,20 @@ static void imprimir_camino(Ciudad *ciudad, int *camino, int largo) {
     for (int k = 0; k < largo; k++) {
         int id = camino[k];
         Vertice *v = &g->Vertices[id];
+        if (k > 0 && k < largo - 1) {
+            Vertice A = g->Vertices[camino[k-1]];
+            Vertice B = g->Vertices[camino[k]];
+            Vertice C = g->Vertices[camino[k+1]];
+            Direccion d = calcular_giro(A, B, C);
+
+            switch (d) {
+                case DIR_RECTO:       printf("  | Continua recto\n");     break;
+                case DIR_IZQUIERDA:   printf("  | Dobla a la izquierda\n"); break;
+                case DIR_DERECHA:     printf("  | Dobla a la derecha\n");  break;
+                case DIR_MEDIA_VUELTA:printf("  | Da media vuelta\n");     break;
+            }
+        }
+
         if (v->es_turistico) {
             int t = v->idx_turistico;
             printf("  Nodo %3d  (%.1f, %.1f)  <-- %s\n",
